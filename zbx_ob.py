@@ -617,7 +617,7 @@ def multi_tenant_resource(db_config, tenant):
         sum(d.min_cpu) as unit_total_cpu,
         round(sum(d.min_memory)/1024/1024/1024, 4) as unit_total_memory_gb
         FROM __all_resource_pool c, __all_unit_config d, __all_tenant e 
-        WHERE c.tenant_id = 1006 AND c.unit_config_id=d.unit_config_id AND c.tenant_id=e.tenant_id;
+        WHERE c.tenant_id = {tenant_id} AND c.unit_config_id=d.unit_config_id AND c.tenant_id=e.tenant_id;
     """
     logging.debug("In multi_tenant_resource, sql:[{!s}].".format(sql))
     t_res = oceanbase_select(**db_config, sql=sql)[0]
