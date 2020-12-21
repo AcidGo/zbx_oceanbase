@@ -705,6 +705,76 @@ def tenant_minor_freeze_times(db_config, tenant, val_min=30):
     logging.debug("="*30)
     return res
 
+def multi_tenant_object_size(db_config, tenant):
+    """某租户占有的各个对象的数量和大小（GB）。
+    """
+    cluster, tenant_name, tenant_id = _tenant_split(tenant)
+    obj_index_sql = f"""
+        select /*+READ_CONSISTENCY(WEAK), QUERY_TIMEOUT(30000000)*/
+            count(*) as cnt,
+            coalesce(round(sum(a.required_size)/1024/1024/1024, 2), 0) as obj_size_gb
+        from __all_virtual_meta_table a, __all_virtual_table b, __all_zone c
+        where
+            a.role = 1 
+            and instr(a.member_list, a.svr_ip) > 0 
+            and a.tenant_id = b.tenant_id 
+            and a.table_id = b.table_id 
+            and b.table_name like '\_\_idx\_%'
+            and c.zone != ''
+            and b.tenant_id = {tenant_id};
+    """
+    obj_recycle_sql = f"""
+        select /*+READ_CONSISTENCY(WEAK), QUERY_TIMEOUT(30000000)*/
+            count(*) as cnt,
+                coalesce(round(sum(a.required_size)/1024/1024/1024, 2), 0) as obj_size_gb
+        from __all_virtual_meta_table a, __all_virtual_table b
+        where
+            a.role = 1 
+            and instr(a.member_list, a.svr_ip) > 0 
+            and a.tenant_id = b.tenant_id 
+            and a.table_id = b.table_id 
+            and b.table_name like '\_\_recycle\_%'
+            and b.tenant_id = {tenant_id};
+    """
+    obj_data_sql = f"""
+        select /*+READ_CONSISTENCY(WEAK), QUERY_TIMEOUT(30000000)*/
+            count(*) as cnt,
+            coalesce(round(sum(a.required_size)/1024/1024/1024, 2), 0) as obj_size_gb
+        from __all_virtual_meta_table a, __all_virtual_table b
+        where
+            a.role = 1 
+            and instr(a.member_list, a.svr_ip) > 0 
+            and a.tenant_id = b.tenant_id 
+            and a.table_id = b.table_id 
+            and b.table_name not like '\_\_recycle\_%'
+            and b.table_name not like '\_\_index\_%'
+            and b.tenant_id = {tenant_id};
+    """
+    res = {}
+    logging.debug("In tenant_object_size, obj_index_sql:[{!s}]".format(obj_index_sql))
+    t_res = oceanbase_select(**db_config, sql=obj_index_sql)[0]
+    res["index"] = {
+        "count": t_res["cnt"],
+        "size": float(t_res["obj_size_gb"]),
+    }
+    logging.debug("In tenant_object_size, obj_recycle_sql:[{!s}]".format(obj_recycle_sql))
+    t_res = oceanbase_select(**db_config, sql=obj_recycle_sql)[0]
+    res["recycle"] = {
+        "count": t_res["cnt"],
+        "size": float(t_res["obj_size_gb"]),
+    }
+    logging.debug("In tenant_object_size, obj_data_sql:[{!s}]".format(obj_data_sql))
+    t_res = oceanbase_select(**db_config, sql=obj_data_sql)[0]
+    res["data"] = {
+        "count": t_res["cnt"],
+        "size": float(t_res["obj_size_gb"]),
+    }
+    res = json.dumps(res)
+    logging.debug("The res of tenant_object_size:")
+    logging.debug(res)
+    logging.debug("="*30)
+    return res
+
 def cluster_clog_notsync_num(db_config):
     """当前集群中未同步的副本数量。
     """
@@ -833,6 +903,7 @@ if __name__ == "__main__":
             "multi_tenant_info",
             "multi_tenant_resource",
             "multi_tenant_memstore",
+            "multi_tenant_object_size",
             "tenant_minor_freeze_times",
             "cluster_clog_notsync_num",
             "cluster_no_primary_table_num",
