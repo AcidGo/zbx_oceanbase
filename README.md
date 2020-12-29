@@ -43,7 +43,7 @@ Zabbix 配置的监控单元尽可能地使用相关模式来统一获取统一�
 # 需要连接并搜集自动发现单元，并注册至 Zabbix
 # 可以配置多个集群，在 Zabbix 端可以根据反馈信息自定义主机样式
 cls_config = {
-    "f5-dgbob": {
+    "f5-ob": {
         # OceanBase 连接地址，可 ob-dns、F5，不能单独连接 observer
         "host": "127.0.0.1",
         # OceanBase 连接端口
