@@ -1,6 +1,6 @@
 # ---------- CONFG ----------
 cls_config = {
-    "f5-dgbob": {
+    "f5-ob": {
         "host": "127.0.0.1",
         "port": 2883,
         "cluster": "testcl",
